@@ -1,10 +1,21 @@
 import DocComponents from "./docComponents";
+import * as NodeTypes from "./constans";
+export interface IRawNode {
+  id: number;
+  type: string;
+  props?: any;
+  nodes?: { [key: number]: IRawNode };
+  children?: Array<IRawNode | number>;
+  text?: string;
+}
+
 
 export default class VNode {
   id: number;
   container: DocComponents;
   type: string;
-  mounted: boolean = false;
+  mounted = false;
+  deleted = false;
   props?: any;
   parent: VNode | null = null;
   firstChild: VNode | null = null;
@@ -13,7 +24,6 @@ export default class VNode {
   previousSibling: VNode | null = null;
   nextSibling: VNode | null = null;
   text?: string;
-  child?: VNode[];
 
   constructor({
     id,
@@ -32,17 +42,133 @@ export default class VNode {
     this.props = props;
   }
 
+  private toRawNode(node:VNode):IRawNode {
+      if(node.type === NodeTypes.TYPE_TEXT) {
+        return  {
+          id:node.id,
+          text: node.text,
+          type: node.type
+        }
+      }
+      return  {
+        id:node.id,
+        text: node.text,
+        type: node.type,
+        children: [],
+        props: node.props,
+      }
+  }
+
   appendChild(child: this) {
-    if (!this.child) {
-      this.child = [];
+    this.removeChild(child);
+    this.size += 1;
+    child.parent = this;
+
+    if (!this.firstChild) {
+      this.firstChild = child;
     }
 
-    this.child.push(child);
+    if (this.lastChild) {
+      this.lastChild.nextSibling = child;
+      child.previousSibling = this.lastChild;
+    }
+
+    this.lastChild = child;
   }
 
   insertBefore(node: this, beforeChild: this) {
-    ///
+    this.removeChild(node);
+    this.size += 1;
+
+    if (this.firstChild === beforeChild) {
+      this.firstChild = node;
+    }
+
+    if (beforeChild.previousSibling) {
+      const previousSibling = beforeChild.previousSibling;
+      previousSibling.nextSibling = node;
+      node.previousSibling = previousSibling;
+    }
+
+    beforeChild.previousSibling = node;
+
+    node.nextSibling = beforeChild;
   }
 
-  removeChild(child: this) {}
+  removeChild(child: this) {
+    if (child.parent !== this) return;
+
+    const previousSibling = child.previousSibling;
+    const nextSibling = child.nextSibling;
+    
+    if (child === this.firstChild) {
+      this.firstChild = nextSibling;
+    } 
+    
+    if (child === this.lastChild) {
+      this.lastChild = previousSibling;
+    } 
+
+    if (previousSibling) {
+      previousSibling.nextSibling = nextSibling;
+    }
+
+    if (nextSibling) {
+      nextSibling.previousSibling = previousSibling;
+    }
+
+    this.previousSibling = null;
+    this.nextSibling = null;
+    this.deleted = true;
+    this.size -= 1;
+  }
+
+  get children () {
+    const childens = [];
+    let item  = this.lastChild;
+     
+    while (item?.nextSibling) {
+        childens.push(item);
+        item = item.nextSibling;
+    }
+   
+    return childens;
+  }
+
+  isMounted(): boolean {
+    return this.parent ? this.parent.isMounted() : this.mounted;
+  }
+
+  isDeleted(): boolean {
+    return this.deleted === true ? this.deleted : this.parent?.isDeleted() ?? false;
+  }
+
+  toJSON() {
+    const rawNode = this.toRawNode(this);
+    const stack = [{currentNode: rawNode, children: this.children}];
+   
+    while(stack.length) {
+
+      const { currentNode, children = []} = stack.pop() as ({
+        currentNode: IRawNode;
+        children: VNode[];
+      });
+
+      for (let index = 0; index < children.length; index++) {
+        const element = children[index];
+        const currentRawNode = this.toRawNode(element);
+        currentNode.children?.push(element.id);
+        if(!currentNode.nodes) {
+           currentNode.nodes = {};
+        }
+        currentNode.nodes[currentRawNode.id] = currentRawNode;
+
+        stack.push({currentNode: currentRawNode,
+           children: element.children});
+      }
+      
+    }
+
+    return rawNode;
+  }
 }
