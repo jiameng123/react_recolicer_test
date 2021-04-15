@@ -28,7 +28,8 @@ const hostConfig = {
     console.log(rest, "clearContainer");
   },
   resetAfterCommit(rootContainerInstance: DocComponents) {
-    console.log(rootContainerInstance, "resetAfterCommit");
+   
+    rootContainerInstance.update();
   },
   finalizeInitialChildren() {
     return false;
@@ -44,7 +45,6 @@ const hostConfig = {
     return node;
   },
   appendInitialChild(parent: VNode, child: VNode) {
-    console.log(parent, "dawdadad");
     parent.appendChild(child);
   },
   appendChildToContainer(parent: VNode, child: VNode) {

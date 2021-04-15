@@ -143,6 +143,20 @@ export default class VNode {
     return this.deleted === true ? this.deleted : this.parent?.isDeleted() ?? false;
   }
 
+  update(props: {[propName: string]: any}) {
+    if(props) {
+      const keys = Object.keys(props);
+      keys.forEach((k) => {
+          this.container.preUpdate({
+            type: 'set',
+            name: k,
+            value: Reflect.get(props, k),
+            node: this,
+          })
+      })
+    }
+  }
+
   toJSON() {
     const rawNode = this.toRawNode(this);
     const stack = [{currentNode: rawNode, children: this.children}];
